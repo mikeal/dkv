@@ -1,0 +1,19 @@
+{
+  "name": "dkv",
+  "version": "0.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Mikeal Rogers <mikeal.rogers@gmail.com> (https://www.mikealrogers.com/)",
+  "license": "(Apache-2.0 AND MIT)",
+  "dependencies": {
+    "@ipld/dag-cbor": "^2.0.2"
+  },
+  "devDependencies": {
+    "standard": "^14.3.4"
+  }
+}
