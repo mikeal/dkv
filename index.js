@@ -9,6 +9,7 @@ const linkify = (ipfs, cid) => {
     return decorate(ipfs, create({ data, cid, codec, hasher }).value)
   })
   ret.cid = cid
+  ret.toString = () => cid.toString()
   return ret
 }
 
@@ -59,6 +60,7 @@ class DKV {
     kv[key] = link.cid
     const block = encode({ value: kv, codec, hasher })
     await this.ipfs.block.put(block.bytes, { cid: block.cid.toString() })
+    if (this.pin) await this.ipfs.pin(block.cid.toString(), { recursive: false })
     return new DKV({ ...this, root: block })
   }
 
