@@ -1,7 +1,7 @@
 {
   "name": "dkv",
   "version": "0.0.0",
-  "description": "",
+  "description": "Decentralized key-value store on IPFS",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -11,9 +11,11 @@
   "author": "Mikeal Rogers <mikeal.rogers@gmail.com> (https://www.mikealrogers.com/)",
   "license": "(Apache-2.0 AND MIT)",
   "dependencies": {
-    "@ipld/dag-cbor": "^2.0.2"
+    "@ipld/dag-cbor": "^2.0.2",
+    "multiformats": "^4.1.0"
   },
   "devDependencies": {
+    "estest": "^10.3.5",
     "standard": "^14.3.4"
   }
 }

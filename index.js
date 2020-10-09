@@ -1,12 +1,13 @@
-import { encode, create } from '../js-multiformats/src/block.js'
-import { sha256 as hasher } from '../js-multiformats/src/hashes/sha2.js'
-import codec from '@ipld/dag-cbor'
+import { encode, decode, create } from 'multiformats/block'
+import { sha256 as hasher } from 'multiformats/hashes/sha2'
+import * as codec from '@ipld/dag-cbor'
+import { CID } from 'multiformats'
 
 // TODO: use HAMT instead of inline map
 
 const linkify = (ipfs, cid) => {
-  const ret = async () => ipfs.block.get(cid.toString()).then(({ data, cid }) => {
-    return decorate(ipfs, create({ data, cid, codec, hasher }).value)
+  const ret = async () => ipfs.block.get(cid.toString()).then(async ({ data, cid }) => {
+    return decorate(ipfs, await create({ data, cid, codec, hasher }).value)
   })
   ret.cid = cid
   ret.toString = () => cid.toString()
@@ -21,7 +22,7 @@ const decorate = (ipfs, obj) => {
   }
   if (obj.asCID === obj) {
   }
-  return Object.fromEntries(Object.entries(obj).map((k, v) => [k, decorate(ipfs, v)]))
+  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, decorate(ipfs, v)]))
 }
 
 const prepare = obj => {
@@ -37,7 +38,7 @@ const prepare = obj => {
   if (obj.asCID === obj) {
     return obj
   }
-  return Object.fromEntries(Object.entries(obj).map((k, v) => [k, prepare(v)]))
+  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, prepare(v)]))
 }
 
 class DKV {
@@ -49,8 +50,9 @@ class DKV {
 
   async get (key) {
     if (typeof this.root.value[key] === 'undefined') throw new Error('Missing')
-    const { data, cid } = await this.ipfs.block.get(this.root.value[key])
-    const block = await create({ bytes: data, cid, hasher })
+    const { data, cid } = await this.ipfs.block.get(this.root.value[key].toString())
+    const opts = { bytes: data, cid: CID.parse(cid.toString()), codec, hasher }
+    const block = await create(opts)
     return decorate(this.ipfs, block.value)
   }
 
@@ -58,23 +60,44 @@ class DKV {
     const link = await this.link(value)
     const kv = { ...this.root.value }
     kv[key] = link.cid
-    const block = encode({ value: kv, codec, hasher })
+    const block = await encode({ value: kv, codec, hasher })
     await this.ipfs.block.put(block.bytes, { cid: block.cid.toString() })
     if (this.pin) await this.ipfs.pin(block.cid.toString(), { recursive: false })
     return new DKV({ ...this, root: block })
   }
 
+  static async link (ipfs, value) {
+    const block = await encode({ value: prepare(value), codec, hasher })
+    await ipfs.block.put(block.bytes, { cid: block.cid.toString() })
+    return linkify(ipfs, block.cid)
+  }
+
   async link (value) {
-    const block = encode({ value: prepare(value), codec, hasher })
-    await this.ipfs.block.put(block.bytes, { cid: block.cid.toString() })
-    return linkify(this.ipfs, block.cid)
+    return DKV.link(this.ipfs, value)
   }
 
   static async from (ipfs, ref, pin = true) {
     if (typeof ref !== 'string') ref = ref.toString()
-    const { data, cid } = await this.ipfs.block.get(ref)
-    const root = await create({ bytes: data, cid, codec, hasher })
+    const { data, cid } = await ipfs.block.get(ref)
+    const opts = { bytes: data, cid: CID.parse(cid.toString()), codec, hasher }
+    const root = await create(opts)
     return new DKV({ ipfs, root, pin })
+  }
+
+  static async fromEntries (ipfs, entries, pin = true) {
+    const kv = {}
+    for (let [key, value] of entries) {
+      if (typeof value !== 'function') {
+        value = await DKV.link(value)
+      }
+      kv[key] = value
+    }
+    const root = await DKV.link(ipfs, kv)
+    return DKV.from(ipfs, root.cid, pin)
+  }
+
+  static async empty (ipfs, pin = true) {
+    return DKV.fromEntries(ipfs, [], pin)
   }
 }
 
