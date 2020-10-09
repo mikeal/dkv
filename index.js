@@ -1,9 +1,10 @@
-import { encode, decode, create } from 'multiformats/block'
+import { encode, create } from 'multiformats/block'
 import { sha256 as hasher } from 'multiformats/hashes/sha2'
 import * as codec from '@ipld/dag-cbor'
 import { CID } from 'multiformats'
+import mkhamt from 'hamt-utils'
 
-// TODO: use HAMT instead of inline map
+const hamt = mkhamt({ codec, hasher })
 
 const linkify = (ipfs, cid) => {
   const ret = async () => ipfs.block.get(cid.toString()).then(async ({ data, cid }) => {
@@ -21,6 +22,7 @@ const decorate = (ipfs, obj) => {
     return obj.map(x => decorate(ipfs, x))
   }
   if (obj.asCID === obj) {
+    return linkify(ipfs, obj)
   }
   return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, decorate(ipfs, v)]))
 }
@@ -43,27 +45,55 @@ const prepare = obj => {
 
 class DKV {
   constructor ({ ipfs, root, pin }) {
+    if (!ipfs) throw new Error('Missing required argument "ipfs"')
+    if (!root || root.asCID !== root) throw new Error('Missing required argument "root"')
     this.ipfs = ipfs
     this.root = root
     this.pin = pin
+    this._getBlock = async cid => {
+      const { data } = await ipfs.block.get(cid.toString())
+      return create({ bytes: data, cid, codec, hasher })
+    }
+    this._putBlock = async block => {
+      const opts = { cid: block.cid.toString() }
+      await ipfs.block.put(block.bytes, opts)
+      return true
+    }
   }
 
   async get (key) {
-    if (typeof this.root.value[key] === 'undefined') throw new Error('Missing')
-    const { data, cid } = await this.ipfs.block.get(this.root.value[key].toString())
-    const opts = { bytes: data, cid: CID.parse(cid.toString()), codec, hasher }
-    const block = await create(opts)
+    const cid = await hamt.get(this.root, key, this._getBlock)
+    if (typeof cid === 'undefined') throw new Error(`Key not found: "${key}"`)
+    const block = await this._getBlock(cid)
     return decorate(this.ipfs, block.value)
   }
 
-  async set (key, value) {
-    const link = await this.link(value)
-    const kv = { ...this.root.value }
-    kv[key] = link.cid
-    const block = await encode({ value: kv, codec, hasher })
-    await this.ipfs.block.put(block.bytes, { cid: block.cid.toString() })
-    if (this.pin) await this.ipfs.pin(block.cid.toString(), { recursive: false })
-    return new DKV({ ...this, root: block })
+  async _bulk (ops) {
+    const promises = []
+    let last
+    for await (const block of hamt.bulk(this.root, ops, this._getBlock)) {
+      promises.push(this._putBlock(block))
+      last = block
+    }
+    await Promise.all(promises)
+    if (this.pin) await this.ipfs.pin(last.cid.toString())
+    return new DKV({ root: last.cid, ipfs: this.ipfs, pin: this.pin })
+  }
+
+  async set (key, val) {
+    let ops
+    if (typeof key === 'object') {
+      const values = await Promise.all(Object.values(key).map(val => this.link(val)))
+      ops = Object.entries(key).map(key => ({ set: { key, val: values.shift().cid } }))
+    } else {
+      val = (await this.link(val)).cid
+      ops = [{ set: { key, val } }]
+    }
+    return this._bulk(ops)
+  }
+
+  async del (key) {
+    return this._bulk([{ del: { key } }])
   }
 
   static async link (ipfs, value) {
@@ -73,6 +103,11 @@ class DKV {
   }
 
   async link (value) {
+    if (typeof link === 'function') {
+      if (!value.cid) throw new Error('Cannot serialize function')
+      return value
+    }
+    if (value && value.asCID === value) return linkify(this.ipfs, value)
     return DKV.link(this.ipfs, value)
   }
 
@@ -80,24 +115,27 @@ class DKV {
     if (typeof ref !== 'string') ref = ref.toString()
     const { data, cid } = await ipfs.block.get(ref)
     const opts = { bytes: data, cid: CID.parse(cid.toString()), codec, hasher }
-    const root = await create(opts)
-    return new DKV({ ipfs, root, pin })
+    const block = await create(opts)
+    return new DKV({ ipfs, root: block.cid, pin })
   }
 
   static async fromEntries (ipfs, entries, pin = true) {
-    const kv = {}
-    for (let [key, value] of entries) {
-      if (typeof value !== 'function') {
-        value = await DKV.link(value)
-      }
-      kv[key] = value
-    }
-    const root = await DKV.link(ipfs, kv)
-    return DKV.from(ipfs, root.cid, pin)
+    const db = await DKV.empty(ipfs, false)
+    return db.set(Object.fromEntries(entries))
   }
 
   static async empty (ipfs, pin = true) {
-    return DKV.fromEntries(ipfs, [], pin)
+    const block = await hamt.empty()
+    await ipfs.block.put(block.bytes, { cid: block.cid.toString() })
+    return new DKV({ ipfs, root: block.cid, pin })
+  }
+
+  get id () {
+    return this.root.cid.toString()
+  }
+
+  [Symbol.for('nodejs.util.inspect.custom')] () {
+    return 'DKV(' + this.id + ')'
   }
 }
 

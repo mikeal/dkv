@@ -22,23 +22,6 @@ const mock = ({ onBlock, onPin } = {}) => {
   return { block: { put, get }, pin: onPin }
 }
 
-/*
-const validate = ({blocks, pins}) => {
-  blocks = blocks || []
-  pins = pins || []
-  const onBlock = ({bytes, cid}) => {
-    const block = blocks.shift()
-    if (!block) throw new Error('Not expecting block')
-    same(bytes, block.bytes)
-    same(cid.toString(), block.cid.toString())
-  }
-  const onPin = cid => {
-    const pin = pins.shift()
-    same(cid, pin.toString())
-  }
-}
-*/
-
 export default async test => {
   test('put/get roundtrip', async test => {
     const ipfs = mock()
