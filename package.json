@@ -1,6 +1,6 @@
 {
   "name": "dkv",
-  "version": "0.0.0",
+  "version": "0.0.0-dev",
   "description": "Decentralized key-value store on IPFS",
   "type": "module",
   "main": "index.js",
