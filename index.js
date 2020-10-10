@@ -76,7 +76,7 @@ class DKV {
       last = block
     }
     await Promise.all(promises)
-    if (this.pin) await this.ipfs.pin(last.cid.toString())
+    // if (this.pin) await this.ipfs.pin.add(last.cid.toString())
     return new DKV({ root: last.cid, ipfs: this.ipfs, pin: this.pin })
   }
 

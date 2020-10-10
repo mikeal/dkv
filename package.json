@@ -12,11 +12,12 @@
   "license": "(Apache-2.0 AND MIT)",
   "dependencies": {
     "@ipld/dag-cbor": "^2.0.2",
-    "hamt-utils": "^1.0.0",
+    "hamt-utils": "^1.1.0",
     "multiformats": "^4.1.0"
   },
   "devDependencies": {
     "estest": "^10.3.5",
+    "ipfs": "^0.50.2",
     "standard": "^14.3.4"
   }
 }
