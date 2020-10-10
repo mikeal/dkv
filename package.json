@@ -5,7 +5,11 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "standard && estest test/test-*.js"
+    "test": "standard && estest test/test-*.js",
+    "lint": "standard",
+    "build": "npm_config_yes=true npx ipjs@latest build --tests",
+    "publish": "npm_config_yes=true npx ipjs@latest publish",
+    "coverage": "c8 --reporter=html estest test/test-*.js && npx st -d coverage -p 8080"
   },
   "keywords": [],
   "author": "Mikeal Rogers <mikeal.rogers@gmail.com> (https://www.mikealrogers.com/)",
@@ -16,6 +20,7 @@
     "multiformats": "^4.1.0"
   },
   "devDependencies": {
+    "c8": "^7.3.3",
     "estest": "^10.3.5",
     "ipfs": "^0.50.2",
     "standard": "^14.3.4"

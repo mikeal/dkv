@@ -4,6 +4,11 @@ import IPFS from 'ipfs'
 
 const opts = { offline: true, start: false, silent: true }
 
+// terrible hack until we can get a better ipfs instance for testing
+setTimeout(() => {
+  process.exit()
+}, 1000 * 3)
+
 export default async test => {
   test('put/get roundtrip', async test => {
     const ipfs = await IPFS.create(opts)
