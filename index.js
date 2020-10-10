@@ -93,6 +93,9 @@ class DKV {
   }
 
   async del (key) {
+    if (Array.isArray(key)) {
+      return this._bulk(key.map(key => ({ del: { key } })))
+    }
     return this._bulk([{ del: { key } }])
   }
 
@@ -131,7 +134,7 @@ class DKV {
   }
 
   get id () {
-    return this.root.cid.toString()
+    return this.root.toString()
   }
 
   [Symbol.for('nodejs.util.inspect.custom')] () {
