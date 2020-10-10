@@ -76,7 +76,7 @@ class DKV {
       last = block
     }
     await Promise.all(promises)
-    // if (this.pin) await this.ipfs.pin.add(last.cid.toString())
+    if (this.pin) await this.ipfs.pin.add(last.cid.toString())
     return new DKV({ root: last.cid, ipfs: this.ipfs, pin: this.pin })
   }
 
@@ -126,7 +126,7 @@ class DKV {
 
   static async empty (ipfs, pin = true) {
     const block = await hamt.empty()
-    await ipfs.block.put(block.bytes, { cid: block.cid.toString() })
+    await ipfs.block.put(block.bytes, { cid: block.cid.toString(), pin })
     return new DKV({ ipfs, root: block.cid, pin })
   }
 
