@@ -1,11 +1,6 @@
 import DKV from '../index.js'
-import { CID } from 'multiformats'
 import { deepStrictEqual as same } from 'assert'
 import IPFS from 'ipfs'
-
-const blocks = new Map()
-
-const noop = () => {}
 
 const opts = { offline: true, start: false, silent: true }
 
