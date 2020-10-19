@@ -2,6 +2,7 @@ import DKV from '../index.js'
 import { deepStrictEqual as same } from 'assert'
 import ipfsModule from 'ipfs'
 import Ctl from 'ipfsd-ctl'
+import { CID } from 'multiformats'
 
 const createIPFS = () => Ctl.createController({
   type: 'proc',
@@ -45,5 +46,25 @@ export default async test => {
     kv = await kv.del('test-del')
     same(await kv.get('test'), { hello: 'world' })
     testError(() => kv.get('test-del'), { message: 'Key not found: "test-del"' })
+    kv = await kv.del(['test'])
+    testError(() => kv.get('test'), { message: 'Key not found: "test"' })
+  })
+  test('from', async test => {
+    const ipfs = await setup(test)
+    let kv = await DKV.fromEntries(ipfs, [['test', { hello: 'world' }]])
+    kv = await DKV.from(ipfs, kv.id)
+    same(await kv.get('test'), { hello: 'world' })
+  })
+  test('links', async test => {
+    const ipfs = await setup(test)
+    let kv = await DKV.empty(ipfs)
+    kv = await kv.set('test', { l: await kv.link({ hello: 'world' }) })
+    let doc = await kv.get('test')
+    let hw = await doc.l()
+    same(hw, { hello: 'world' })
+    kv = await kv.set('relink', doc)
+    doc = await kv.get('relink')
+    hw = await doc.l()
+    same(hw, { hello: 'world' })
   })
 }

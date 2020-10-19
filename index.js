@@ -8,7 +8,8 @@ const hamt = mkhamt({ codec, hasher })
 
 const linkify = (ipfs, cid) => {
   const ret = async () => ipfs.block.get(cid.toString()).then(async ({ data, cid }) => {
-    return decorate(ipfs, await create({ data, cid, codec, hasher }).value)
+    const block = await create({ bytes: data, cid: CID.parse(cid.toString()), codec, hasher })
+    return decorate(ipfs, block.value)
   })
   ret.cid = cid
   ret.toString = () => cid.toString()
@@ -29,11 +30,11 @@ const decorate = (ipfs, obj) => {
 
 const prepare = obj => {
   if (obj === null) return null
-  if (typeof obj !== 'object') return obj
   if (typeof obj === 'function') {
     if (!obj.cid) throw new Error('Cannot serialize functions that are not links')
     return obj.cid
   }
+  if (typeof obj !== 'object') return obj
   if (Array.isArray(obj)) {
     return obj.map(x => prepare(x))
   }
@@ -138,7 +139,9 @@ class DKV {
   }
 
   [Symbol.for('nodejs.util.inspect.custom')] () {
+    /* c8 ignore next */
     return 'DKV(' + this.id + ')'
+    /* c8 ignore next */
   }
 }
 
