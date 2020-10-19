@@ -54,6 +54,8 @@ export default async test => {
     let kv = await DKV.fromEntries(ipfs, [['test', { hello: 'world' }]])
     kv = await DKV.from(ipfs, kv.id)
     same(await kv.get('test'), { hello: 'world' })
+    kv = await DKV.from(ipfs, CID.parse(kv.id))
+    same(await kv.get('test'), { hello: 'world' })
   })
   test('links', async test => {
     const ipfs = await setup(test)
