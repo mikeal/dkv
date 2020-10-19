@@ -3,12 +3,6 @@ import { deepStrictEqual as same } from 'assert'
 import ipfsModule from 'ipfs'
 import Ctl from 'ipfsd-ctl'
 
-/* terrible hack until we can get a better ipfs instance for testing
-setTimeout(() => {
-  process.exit()
-}, 1000 * 3)
-*/
-
 const createIPFS = () => Ctl.createController({
   type: 'proc',
   ipfsModule,
@@ -22,19 +16,34 @@ const setup = async test => {
   return ipfsd.api
 }
 
+const testError = async (fn, props) => {
+  let threw = true
+  try {
+    await fn()
+    threw = false
+  } catch (e) {
+    for (const [key, value] of Object.entries(props)) {
+      same(e[key], value)
+    }
+  }
+  same(threw, true)
+}
+
 export default async test => {
   test('put/get roundtrip', async test => {
     const ipfs = await setup(test)
     let kv = await DKV.empty(ipfs)
     kv = await kv.set('test', { hello: 'world' })
     same(await kv.get('test'), { hello: 'world' })
-    ipfs.stop()
   })
-  test('put/get roundtrip', async test => {
+  test('del', async test => {
     const ipfs = await setup(test)
     let kv = await DKV.empty(ipfs)
-    kv = await kv.set('test', { hello: 'world' })
+    kv = await kv.set({ test: { hello: 'world' }, 'test-del': 3 })
     same(await kv.get('test'), { hello: 'world' })
-    ipfs.stop()
+    same(await kv.get('test-del'), 3)
+    kv = await kv.del('test-del')
+    same(await kv.get('test'), { hello: 'world' })
+    testError(() => kv.get('test-del'), { message: 'Key not found: "test-del"' })
   })
 }

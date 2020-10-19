@@ -84,7 +84,7 @@ class DKV {
     let ops
     if (typeof key === 'object') {
       const values = await Promise.all(Object.values(key).map(val => this.link(val)))
-      ops = Object.entries(key).map(key => ({ set: { key, val: values.shift().cid } }))
+      ops = Object.keys(key).map(key => ({ set: { key, val: values.shift().cid } }))
     } else {
       val = (await this.link(val)).cid
       ops = [{ set: { key, val } }]
